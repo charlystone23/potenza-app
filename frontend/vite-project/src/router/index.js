@@ -67,14 +67,14 @@ router.beforeEach((to, from, next) => {
     return
   }
 
-  // If user is admin trying to access dashboard or alumnos, redirect to admin panel
+  // If user is admin trying to access dashboard or alumnos (trainer view), redirect to admin panel
   if ((to.path === "/dashboard" || to.path === "/alumnos") && user?.role === "ADMIN") {
     next("/admin")
     return
   }
 
-  // If user is common user trying to access admin, redirect to dashboard
-  if (to.path === "/admin" && user?.role !== "ADMIN") {
+  // If user is common user trying to access admin routes, redirect to dashboard
+  if ((to.path.startsWith("/admin")) && user?.role !== "ADMIN") {
     next("/dashboard")
     return
   }
