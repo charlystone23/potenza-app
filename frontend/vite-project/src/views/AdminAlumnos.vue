@@ -1,80 +1,25 @@
 <script setup>
 import { ref, onMounted } from "vue"
 import { useRouter } from "vue-router"
+import { MongoService } from "../services/mongoService"
 
 const router = useRouter()
 const entrenadores = ref([])
+const isLoading = ref(false)
+const error = ref("")
+const expandedTrainers = ref({})
 
-// Datos de ejemplo - en producción vendrían de la API
-// Cada entrenador tiene sus alumnos
-const entrenadoresEjemplo = [
-  {
-    id: 1,
-    nombre: "Carlos",
-    apellido: "Trainer",
-    email: "carlos@potenza.com",
-    alumnos: [
-      { 
-        id: 1, 
-        nombre: "Juan", 
-        apellido: "Pérez", 
-        historialPagos: [
-          { fecha: new Date(2024, 0, 15), tipo: "efectivo" }
-        ]
-      },
-      { 
-        id: 2, 
-        nombre: "María", 
-        apellido: "González", 
-        historialPagos: [
-          { fecha: new Date(2024, 0, 20), tipo: "transferencia" }
-        ]
-      },
-      { 
-        id: 3, 
-        nombre: "Carlos", 
-        apellido: "Rodríguez", 
-        historialPagos: [
-          { fecha: new Date(2024, 0, 5), tipo: "efectivo" }
-        ]
-      }
-    ]
-  },
-  {
-    id: 2,
-    nombre: "Ana",
-    apellido: "Coach",
-    email: "ana@potenza.com",
-    alumnos: [
-      { 
-        id: 4, 
-        nombre: "Ana", 
-        apellido: "Martínez", 
-        historialPagos: [
-          { fecha: new Date(2024, 1, 1), tipo: "transferencia" }
-        ]
-      },
-      { 
-        id: 5, 
-        nombre: "Luis", 
-        apellido: "Sánchez", 
-        historialPagos: [
-          { fecha: new Date(2024, 0, 25), tipo: "otros" }
-        ]
-      }
-    ]
+onMounted(async () => {
+  try {
+    isLoading.value = true
+    const data = await MongoService.getEntrenadores()
+    entrenadores.value = data || []
+  } catch (e) {
+    console.error("Error loading entrenadores:", e)
+    error.value = "Error al cargar entrenadores"
+  } finally {
+    isLoading.value = false
   }
-]
-
-onMounted(() => {
-  // En producción, esto vendría de una API
-  entrenadores.value = entrenadoresEjemplo.map(entrenador => ({
-    ...entrenador,
-    alumnos: entrenador.alumnos.map(alumno => ({
-      ...alumno,
-      historialPagos: alumno.historialPagos || []
-    }))
-  }))
 })
 
 function getUltimoPago(alumno) {
@@ -137,6 +82,14 @@ function getDaysUntilPayment(alumno) {
 function goBack() {
   router.push("/admin")
 }
+
+function toggleTrainer(trainerId) {
+  expandedTrainers.value[trainerId] = !expandedTrainers.value[trainerId]
+}
+
+function isTrainerExpanded(trainerId) {
+  return expandedTrainers.value[trainerId] || false
+}
 </script>
 
 <template>
@@ -146,8 +99,8 @@ function goBack() {
         <button @click="goBack" class="back-button">←</button>
         <img src="/logo.svg" alt="Potenza Gym Logo" class="logo-small" />
         <div>
-          <h1>Alumnos por Entrenador</h1>
-          <p class="subtitle">Visualiza los alumnos organizados por entrenador</p>
+          <h1>Entrenadores</h1>
+          <p class="subtitle">Visualiza los entrenadores y sus alumnos</p>
         </div>
       </div>
     </div>
@@ -177,12 +130,15 @@ function goBack() {
           <div class="entrenador-header">
             <div class="entrenador-info">
               <h2>{{ entrenador.nombre }} {{ entrenador.apellido }}</h2>
-              <p class="entrenador-email">{{ entrenador.email }}</p>
+              <p class="entrenador-email">{{ entrenador.username }}</p>
               <p class="alumnos-count">{{ entrenador.alumnos.length }} alumno(s)</p>
             </div>
+            <button @click="toggleTrainer(entrenador._id)" class="toggle-button">
+              {{ isTrainerExpanded(entrenador._id) ? 'Ocultar' : 'Ver' }} Alumnos
+            </button>
           </div>
 
-          <div class="alumnos-section">
+          <div class="alumnos-section" v-if="isTrainerExpanded(entrenador._id)">
             <div 
               v-for="alumno in entrenador.alumnos" 
               :key="alumno.id" 
@@ -233,7 +189,7 @@ function goBack() {
 .admin-alumnos-container {
   min-height: 100vh;
   min-height: 100dvh;
-  background: linear-gradient(180deg, var(--potenza-light-grey) 0%, var(--potenza-grey-green) 100%);
+  background: var(--page-bg);
   padding: 20px;
   padding-bottom: 40px;
 }
@@ -280,17 +236,39 @@ function goBack() {
 }
 
 .admin-alumnos-header h1 {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 1.75rem;
   font-weight: 700;
   margin: 0;
 }
 
 .subtitle {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.9rem;
   margin: 4px 0 0 0;
   font-weight: 500;
+}
+
+.create-button {
+  background: linear-gradient(135deg, var(--potenza-yellow) 0%, #FFA500 100%);
+  color: var(--potenza-dark-grey);
+  border: 2px solid var(--potenza-black);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+.create-button:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .admin-alumnos-content {
@@ -300,7 +278,7 @@ function goBack() {
 }
 
 .legend {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -315,7 +293,7 @@ function goBack() {
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
 }
 
 .status-indicator {
@@ -344,7 +322,7 @@ function goBack() {
 }
 
 .entrenador-card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -355,23 +333,52 @@ function goBack() {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 2px solid var(--potenza-yellow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.entrenador-info {
+  flex: 1;
+}
+
+.toggle-button {
+  background-color: var(--potenza-dark-grey);
+  color: var(--potenza-yellow);
+  border: 2px solid var(--potenza-black);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.toggle-button:active {
+  transform: scale(0.98);
+  background-color: #3A3A3A;
 }
 
 .entrenador-info h2 {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 1.5rem;
   margin: 0 0 8px 0;
   font-weight: 700;
 }
 
 .entrenador-email {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.9rem;
   margin: 0 0 8px 0;
 }
 
 .alumnos-count {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0;
@@ -384,14 +391,14 @@ function goBack() {
 }
 
 .alumno-item {
-  background: #f9fafb;
+  background: var(--input-bg);
   border-radius: 12px;
   padding: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--input-border);
 }
 
 .alumno-details {
@@ -399,20 +406,20 @@ function goBack() {
 }
 
 .alumno-details h3 {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 1.1rem;
   margin: 0 0 8px 0;
   font-weight: 600;
 }
 
 .payment-info {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.85rem;
   margin: 0;
 }
 
 .payment-type {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   text-transform: capitalize;
   font-weight: 500;
 }
@@ -447,7 +454,7 @@ function goBack() {
 
 .days-info {
   font-size: 0.75rem;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-weight: 600;
   text-align: center;
 }
@@ -455,16 +462,152 @@ function goBack() {
 .no-alumnos {
   text-align: center;
   padding: 20px;
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.9rem;
 }
 
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--potenza-yellow);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h2 {
+  color: var(--header-text);
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: var(--header-text);
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--header-text);
+}
+
+.form-group input,
+.form-group select {
+  padding: 12px;
+  border: 2px solid var(--input-border);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--potenza-yellow);
+}
+
+.error-message {
+  background-color: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cancel-button,
+.submit-button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid var(--potenza-black);
+  min-height: 48px;
+}
+
+.cancel-button {
+  background-color: var(--card-bg);
+  color: var(--header-text);
+}
+
+.cancel-button:active {
+  transform: scale(0.98);
+  background-color: #f3f4f6;
+}
+
+.submit-button {
+  background: linear-gradient(135deg, var(--potenza-yellow) 0%, #FFA500 100%);
+  color: var(--potenza-dark-grey);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.submit-button:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .empty-state {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 40px;
   text-align: center;
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 1rem;
+  border: 2px solid var(--potenza-yellow);
 }
 </style>

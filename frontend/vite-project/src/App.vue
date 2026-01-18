@@ -1,4 +1,10 @@
 <script setup>
+import { onMounted } from "vue"
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('theme') || 'light'
+  document.documentElement.setAttribute('data-theme', savedTheme)
+})
 </script>
 
 <template>
@@ -6,21 +12,5 @@
 </template>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior: none; /* Prevents pull-to-refresh on mobile */
-  touch-action: pan-y; /* Allows vertical scrolling */
-}
+/* Global styles are now in style.css */
 </style>

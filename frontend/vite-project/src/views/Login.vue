@@ -1,17 +1,17 @@
 <script setup>
 import { ref } from "vue"
 import { useRouter } from "vue-router"
-import { login } from "../services/api"
+import { MongoService } from "../services/mongoService"
 
 const router = useRouter()
 
-const email = ref("")
+const username = ref("")
 const password = ref("")
 const error = ref("")
 const loading = ref(false)
 
 async function handleLogin() {
-  if (!email.value || !password.value) {
+  if (!username.value || !password.value) {
     error.value = "Por favor, completa todos los campos"
     return
   }
@@ -20,11 +20,16 @@ async function handleLogin() {
   error.value = ""
 
   try {
-    const response = await login(email.value, password.value)
+    const response = await MongoService.login(username.value, password.value)
     
     if (response.success) {
       localStorage.setItem("user", JSON.stringify(response.user))
-      router.push(response.user.role === "ADMIN" ? "/admin" : "/dashboard")
+      // Redirect based on role
+      if (response.user.role === 'admin') {
+        router.push("/admin")
+      } else {
+        router.push("/dashboard")
+      }
     } else {
       error.value = response.message || "Credenciales incorrectas"
     }
@@ -34,18 +39,6 @@ async function handleLogin() {
   } finally {
     loading.value = false
   }
-}
-
-function fakeLoginAdmin() {
-  const user = { role: "ADMIN", name: "Admin" }
-  localStorage.setItem("user", JSON.stringify(user))
-  router.push("/admin")
-}
-
-function fakeLoginUser() {
-  const user = { role: "USER", name: "Usuario" }
-  localStorage.setItem("user", JSON.stringify(user))
-  router.push("/dashboard")
 }
 </script>
 
@@ -62,12 +55,12 @@ function fakeLoginUser() {
 
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
-          <label for="email">Email</label>
+          <label for="username">Usuario</label>
           <input
-            id="email"
-            v-model="email"
-            type="email"
-            placeholder="tu@email.com"
+            id="username"
+            v-model="username"
+            type="text"
+            placeholder="Nombre de usuario"
             required
             :disabled="loading"
           />
@@ -94,19 +87,6 @@ function fakeLoginUser() {
           <span v-else>Iniciar Sesión</span>
         </button>
       </form>
-
-      <div class="divider">
-        <span>o</span>
-      </div>
-
-      <div class="mock-buttons">
-        <button @click="fakeLoginUser" class="mock-button mock-user" :disabled="loading">
-          Entrar como Usuario (Mock)
-        </button>
-        <button @click="fakeLoginAdmin" class="mock-button mock-admin" :disabled="loading">
-          Entrar como Admin (Mock)
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -118,19 +98,20 @@ function fakeLoginUser() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #E5E5E5 0%, #4A5D4A 100%);
+  background: var(--page-bg);
   padding: 16px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .login-card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   padding: 32px 24px;
   width: 100%;
   max-width: 100%;
+  border: 2px solid var(--potenza-yellow);
 }
 
 .login-header {
@@ -154,11 +135,11 @@ function fakeLoginUser() {
   font-size: 2rem;
   font-weight: 700;
   margin: 0 0 8px 0;
-  color: #2D2D2D;
+  color: var(--header-text);
 }
 
 .subtitle {
-  color: #6b7280;
+  color: var(--subtitle-text);
   font-size: 0.9rem;
   margin: 0;
 }
@@ -178,13 +159,13 @@ function fakeLoginUser() {
 .form-group label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--header-text);
   text-align: left;
 }
 
 .form-group input {
   padding: 14px 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--input-border);
   border-radius: 10px;
   font-size: 16px; /* Prevents zoom on iOS */
   transition: all 0.2s;
@@ -192,6 +173,8 @@ function fakeLoginUser() {
   -webkit-appearance: none;
   appearance: none;
   touch-action: manipulation;
+  background: var(--input-bg);
+  color: var(--header-text);
 }
 
 .form-group input:focus {
@@ -308,42 +291,9 @@ function fakeLoginUser() {
   cursor: not-allowed;
 }
 
-@media (prefers-color-scheme: dark) {
-  .login-card {
-    background: #2D2D2D;
-  }
-
-  .login-header h1 {
-    color: #FFD700;
-  }
-
-  .subtitle {
-    color: #E5E5E5;
-  }
-
-  .form-group label {
-    color: #E5E5E5;
-  }
-
-  .form-group input {
-    background-color: #3A3A3A;
-    border-color: #4A5D4A;
-    color: #FFFFFF;
-  }
-
-  .form-group input:focus {
-    border-color: #FFD700;
-  }
-
-  .mock-button {
-    background-color: #3A3A3A;
-    color: #FFD700;
-    border-color: #FFD700;
-  }
-
-  .mock-button:active:not(:disabled) {
-    background-color: #4A4A4A;
-  }
+/* Dark Mode specific overrides if needed (extra contrast) */
+[data-theme="dark"] .login-card {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 </style>
     

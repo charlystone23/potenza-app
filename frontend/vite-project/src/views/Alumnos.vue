@@ -1,74 +1,69 @@
 <script setup>
 import { ref, onMounted, computed } from "vue"
 import { useRouter } from "vue-router"
+import { MongoService } from "../services/mongoService"
 
 const router = useRouter()
 const alumnos = ref([])
 const showModal = ref(false)
 const showPaymentModal = ref(false)
+const showDeleteModal = ref(false)
 const alumnoSeleccionado = ref(null)
+const alumnoAEliminar = ref(null)
 const historialVisible = ref({}) // Objeto para rastrear qué historiales están visibles
 const nuevoAlumno = ref({
   nombre: "",
   apellido: "",
-  fechaPago: ""
+  fechaPago: "",
+  tipoPago: "efectivo",
+  detalleOtros: "",
+  membresiaId: "" // ID de la membresía seleccionada
 })
 const nuevoPago = ref({
   fechaPago: "",
-  tipoPago: "efectivo"
+  tipoPago: "efectivo",
+  detalleOtros: "",
+  membresiaId: ""
 })
+const membresias = ref([])
 const error = ref("")
 
-// Datos de ejemplo - en producción vendrían de la API
-const alumnosEjemplo = [
-  { 
-    id: 1, 
-    nombre: "Juan", 
-    apellido: "Pérez", 
-    historialPagos: [
-      { fecha: new Date(2024, 0, 15), tipo: "efectivo" }
-    ]
-  },
-  { 
-    id: 2, 
-    nombre: "María", 
-    apellido: "González", 
-    historialPagos: [
-      { fecha: new Date(2024, 0, 20), tipo: "transferencia" }
-    ]
-  },
-  { 
-    id: 3, 
-    nombre: "Carlos", 
-    apellido: "Rodríguez", 
-    historialPagos: [
-      { fecha: new Date(2024, 0, 5), tipo: "efectivo" }
-    ]
-  },
-  { 
-    id: 4, 
-    nombre: "Ana", 
-    apellido: "Martínez", 
-    historialPagos: [
-      { fecha: new Date(2024, 1, 1), tipo: "transferencia" }
-    ]
-  },
-  { 
-    id: 5, 
-    nombre: "Luis", 
-    apellido: "Sánchez", 
-    historialPagos: [
-      { fecha: new Date(2024, 0, 25), tipo: "otros" }
-    ]
-  },
-]
+const isLoading = ref(false)
 
-onMounted(() => {
-  // En producción, esto vendría de una API
-  alumnos.value = alumnosEjemplo.map(alumno => ({
-    ...alumno,
-    historialPagos: alumno.historialPagos || []
-  }))
+const currentUser = ref(null)
+
+onMounted(async () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) {
+      router.push('/') // Redirect to login if not logged in
+      return
+    }
+    currentUser.value = JSON.parse(userStr)
+
+    isLoading.value = true
+    
+    // Si es entrenador, filtramos por su ID. Si es admin, traemos todo (o podríamos filtrar por ?entrenadorId si quisiéramos)
+    const entrenadorId = currentUser.value.role === 'entrenador' ? currentUser.value._id : null
+    
+    const data = await MongoService.getAlumnos(entrenadorId)
+    alumnos.value = data || []
+
+    const mData = await MongoService.getMembresias()
+    membresias.value = mData || []
+    
+    // Set default membership (3 days if exists)
+    const defaultM = membresias.value.find(m => m.nombre.includes('3 días')) || membresias.value[0]
+    if (defaultM) {
+      nuevoAlumno.value.membresiaId = defaultM._id
+      nuevoPago.value.membresiaId = defaultM._id
+    }
+  } catch (e) {
+    console.error("Error initial loading:", e)
+    error.value = "Error al cargar datos"
+  } finally {
+    isLoading.value = false
+  }
 })
 
 function getUltimoPago(alumno) {
@@ -183,7 +178,10 @@ function closeModal() {
   nuevoAlumno.value = {
     nombre: "",
     apellido: "",
-    fechaPago: ""
+    fechaPago: "",
+    tipoPago: "efectivo",
+    detalleOtros: "",
+    membresiaId: membresias.value.find(m => m.nombre.includes('3 días'))?._id || membresias.value[0]?._id || ""
   }
 }
 
@@ -237,7 +235,7 @@ function handleDateInput(event) {
   }
 }
 
-function agregarAlumno() {
+async function agregarAlumno() {
   // Validar campos
   if (!nuevoAlumno.value.nombre.trim()) {
     error.value = "El nombre es requerido"
@@ -269,35 +267,64 @@ function agregarAlumno() {
     return
   }
   
-  // Crear nuevo alumno
-  const nuevoId = alumnos.value.length > 0 
-    ? Math.max(...alumnos.value.map(a => a.id)) + 1 
-    : 1
+  // Validar que la fecha no sea futura
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  fechaPagoDate.setHours(0, 0, 0, 0)
   
-  const alumno = {
-    id: nuevoId,
+  if (fechaPagoDate > hoy) {
+    error.value = "La fecha de pago no puede ser futura"
+    return
+  }
+  
+  // Crear nuevo alumno object for Mongo service
+  // Note: ID generation is handled by MongoService mostly, but we might want
+  // a temp ID for local view until refresh or use the response
+  const selectedM = membresias.value.find(m => m._id === nuevoAlumno.value.membresiaId)
+  
+  const alumnoData = {
     nombre: nuevoAlumno.value.nombre.trim(),
     apellido: nuevoAlumno.value.apellido.trim(),
+    entrenador: currentUser.value ? currentUser.value._id : null,
     historialPagos: [{
       fecha: fechaPagoDate,
-      tipo: "efectivo" // Por defecto
+      tipo: nuevoAlumno.value.tipoPago === 'otros' 
+        ? (nuevoAlumno.value.detalleOtros.trim() || 'otros')
+        : nuevoAlumno.value.tipoPago,
+      membresia: selectedM ? {
+        nombre: selectedM.nombre,
+        precio: selectedM.precio
+      } : null,
+      monto: selectedM ? selectedM.precio : 0
     }]
   }
   
-  // Agregar a la lista (en producción, esto sería una llamada a la API)
-  alumnos.value.push(alumno)
-  
-  // Cerrar modal
-  closeModal()
+  try {
+    isLoading.value = true
+    const savedAlumno = await MongoService.createAlumno(alumnoData)
+    alumnos.value.push(savedAlumno)
+    closeModal()
+  } catch (e) {
+    console.error(e)
+    error.value = "Error al guardar en MongoDB"
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function openPaymentModal(alumno) {
   alumnoSeleccionado.value = alumno
   showPaymentModal.value = true
   error.value = ""
+  
+  // Set default membership (3 days)
+  const defaultM = membresias.value.find(m => m.nombre.includes('3 días')) || membresias.value[0]
+  
   nuevoPago.value = {
     fechaPago: "",
-    tipoPago: "efectivo"
+    tipoPago: "efectivo",
+    detalleOtros: "",
+    membresiaId: defaultM?._id || ""
   }
 }
 
@@ -307,11 +334,13 @@ function closePaymentModal() {
   error.value = ""
   nuevoPago.value = {
     fechaPago: "",
-    tipoPago: "efectivo"
+    tipoPago: "efectivo",
+    detalleOtros: "",
+    membresiaId: ""
   }
 }
 
-function registrarPago() {
+async function registrarPago() {
   if (!alumnoSeleccionado.value) return
   
   // Validar fecha
@@ -335,35 +364,103 @@ function registrarPago() {
     return
   }
   
+  // Validar que la fecha no sea futura
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  fechaPagoDate.setHours(0, 0, 0, 0)
+  
+  if (fechaPagoDate > hoy) {
+    error.value = "La fecha de pago no puede ser futura"
+    return
+  }
+  
   // Buscar el alumno en la lista
   const alumnoIndex = alumnos.value.findIndex(a => a.id === alumnoSeleccionado.value.id)
   if (alumnoIndex === -1) return
   
   // Crear nuevo pago
+  let tipoFinal = nuevoPago.value.tipoPago
+  if (nuevoPago.value.tipoPago === 'otros') {
+    if (!nuevoPago.value.detalleOtros.trim()) {
+      error.value = "Debes especificar el detalle para 'Otros'"
+      return
+    }
+    tipoFinal = nuevoPago.value.detalleOtros.trim() || 'otros'
+  }
+  
+  const selectedM = membresias.value.find(m => m._id === nuevoPago.value.membresiaId)
+
   const nuevoPagoObj = {
     fecha: fechaPagoDate,
-    tipo: nuevoPago.value.tipoPago
+    tipo: tipoFinal,
+    membresia: selectedM ? {
+      nombre: selectedM.nombre,
+      precio: selectedM.precio
+    } : null,
+    monto: selectedM ? selectedM.precio : 0
   }
   
-  // Agregar al historial (mantener solo los últimos 3)
-  if (!alumnos.value[alumnoIndex].historialPagos) {
-    alumnos.value[alumnoIndex].historialPagos = []
+  try {
+    isLoading.value = true
+    await MongoService.addPago(alumnoSeleccionado.value._id || alumnoSeleccionado.value.id, nuevoPagoObj)
+    
+    // Update local state
+    if (!alumnos.value[alumnoIndex].historialPagos) {
+      alumnos.value[alumnoIndex].historialPagos = []
+    }
+    
+    alumnos.value[alumnoIndex].historialPagos.push(nuevoPagoObj)
+    
+    // Sorting for display
+    alumnos.value[alumnoIndex].historialPagos.sort((a, b) => 
+      new Date(b.fecha) - new Date(a.fecha)
+    )
+    
+    // Mantener solo los últimos 3 pagos (local display)
+    if (alumnos.value[alumnoIndex].historialPagos.length > 3) {
+      alumnos.value[alumnoIndex].historialPagos = alumnos.value[alumnoIndex].historialPagos.slice(0, 3)
+    }
+    
+    closePaymentModal()
+  } catch (e) {
+    console.error(e)
+    error.value = "Error al registrar pago en MongoDB"
+  } finally {
+    isLoading.value = false
   }
-  
-  alumnos.value[alumnoIndex].historialPagos.push(nuevoPagoObj)
-  
-  // Ordenar por fecha descendente y mantener solo los últimos 3
-  alumnos.value[alumnoIndex].historialPagos.sort((a, b) => 
-    new Date(b.fecha) - new Date(a.fecha)
-  )
-  
-  // Mantener solo los últimos 3 pagos
-  if (alumnos.value[alumnoIndex].historialPagos.length > 3) {
-    alumnos.value[alumnoIndex].historialPagos = alumnos.value[alumnoIndex].historialPagos.slice(0, 3)
+}
+
+function openDeleteConfirm(alumno) {
+  alumnoAEliminar.value = alumno
+  showDeleteModal.value = true
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false
+  alumnoAEliminar.value = null
+}
+
+async function confirmarEliminacion() {
+  if (!alumnoAEliminar.value) return
+
+  try {
+    isLoading.value = true
+    await MongoService.deleteAlumno(alumnoAEliminar.value.id || alumnoAEliminar.value._id)
+    alumnos.value = alumnos.value.filter(a => 
+      a.id !== (alumnoAEliminar.value.id || alumnoAEliminar.value._id) && 
+      a._id !== (alumnoAEliminar.value.id || alumnoAEliminar.value._id)
+    )
+    closeDeleteModal()
+  } catch (e) {
+    console.error(e)
+    alert("Error al eliminar el alumno")
+  } finally {
+    isLoading.value = false
   }
-  
-  // Cerrar modal
-  closePaymentModal()
+}
+
+async function eliminarAlumno(id) {
+  // Method replaced by openDeleteConfirm
 }
 </script>
 
@@ -374,8 +471,9 @@ function registrarPago() {
         <button @click="goBack" class="back-button">←</button>
         <img src="/logo.svg" alt="Potenza Gym Logo" class="logo-small" />
         <div>
-          <h1>Alumnos</h1>
-          <p class="subtitle">Gestiona tus alumnos y sus pagos</p>
+          <h1>Mis Alumnos</h1>
+          <p class="subtitle" v-if="currentUser">Panel de {{ currentUser.nombre || currentUser.name }}</p>
+          <p class="subtitle" v-else>Gestiona tus alumnos y sus pagos</p>
         </div>
       </div>
       <button @click="openModal" class="add-button">
@@ -415,6 +513,9 @@ function registrarPago() {
               <p class="payment-date" v-if="getUltimoPago(alumno)">
                 {{ formatDate(getUltimoPago(alumno).fecha) }} 
                 <span class="payment-type">({{ getUltimoPago(alumno).tipo }})</span>
+                <span v-if="getUltimoPago(alumno).membresia" class="membership-info-chip">
+                  {{ getUltimoPago(alumno).membresia.nombre }} - ${{ getUltimoPago(alumno).membresia.precio.toLocaleString() }}
+                </span>
               </p>
               <p class="payment-date" v-else>Sin pagos registrados</p>
               <p class="next-payment">Próximo pago: {{ formatNextPaymentDate(alumno) }}</p>
@@ -443,6 +544,9 @@ function registrarPago() {
                 >
                   <span class="history-date">{{ formatDate(pago.fecha) }}</span>
                   <span class="history-type">{{ pago.tipo }}</span>
+                  <span v-if="pago.membresia" class="history-membresia">
+                    {{ pago.membresia.nombre }} (${{ pago.membresia.precio.toLocaleString() }})
+                  </span>
                 </div>
               </div>
             </div>
@@ -466,12 +570,34 @@ function registrarPago() {
             <button @click="openPaymentModal(alumno)" class="register-payment-button">
               Registrar Pago
             </button>
+            <button @click.stop="openDeleteConfirm(alumno)" class="delete-alumno-button-inline" title="Eliminar Alumno">
+              🗑️
+            </button>
           </div>
         </div>
       </div>
 
       <div v-if="alumnos.length === 0" class="empty-state">
         <p>No hay alumnos registrados</p>
+      </div>
+    </div>
+
+    <!-- Modal de confirmación de eliminación -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
+      <div class="modal-content delete-confirmation-modal">
+        <div class="delete-icon-large">⚠️</div>
+        <h3>¿Eliminar Alumno?</h3>
+        <p>Estás a punto de eliminar a <strong>{{ alumnoAEliminar?.nombre }} {{ alumnoAEliminar?.apellido }}</strong>.</p>
+        <p class="delete-warning">Esta acción es permanente y no se puede deshacer.</p>
+        
+        <div class="modal-actions-stacked">
+          <button @click="confirmarEliminacion" class="confirm-delete-btn" :disabled="isLoading">
+            {{ isLoading ? 'Eliminando...' : 'Sí, Eliminar' }}
+          </button>
+          <button @click="closeDeleteModal" class="cancel-delete-btn" :disabled="isLoading">
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -517,6 +643,45 @@ function registrarPago() {
               maxlength="10"
               required
             />
+          </div>
+
+          <div class="form-group">
+            <label for="tipoPagoNuevo">Tipo de Pago *</label>
+            <select
+              id="tipoPagoNuevo"
+              v-model="nuevoAlumno.tipoPago"
+              required
+              class="select-input"
+            >
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+
+          <div class="form-group" v-if="nuevoAlumno.tipoPago === 'otros'">
+            <label for="detalleOtrosNuevo">Detalle *</label>
+            <input
+              id="detalleOtrosNuevo"
+              v-model="nuevoAlumno.detalleOtros"
+              type="text"
+              placeholder="Especifica el tipo de pago"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="membresiaNuevo">Membresía *</label>
+            <select
+              id="membresiaNuevo"
+              v-model="nuevoAlumno.membresiaId"
+              required
+              class="select-input"
+            >
+              <option v-for="m in membresias" :key="m._id" :value="m._id">
+                {{ m.nombre }} - ${{ m.precio.toLocaleString() }}
+              </option>
+            </select>
           </div>
 
           <div v-if="error" class="error-message">
@@ -575,6 +740,31 @@ function registrarPago() {
             </select>
           </div>
 
+          <div class="form-group">
+            <label for="membresiaPago">Membresía *</label>
+            <select
+              id="membresiaPago"
+              v-model="nuevoPago.membresiaId"
+              required
+              class="select-input"
+            >
+              <option v-for="m in membresias" :key="m._id" :value="m._id">
+                {{ m.nombre }} - ${{ m.precio.toLocaleString() }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group" v-if="nuevoPago.tipoPago === 'otros'">
+            <label for="detalleOtros">Detalle *</label>
+            <input
+              id="detalleOtros"
+              v-model="nuevoPago.detalleOtros"
+              type="text"
+              placeholder="Especifica el tipo de pago"
+              required
+            />
+          </div>
+
           <div v-if="error" class="error-message">
             {{ error }}
           </div>
@@ -597,7 +787,7 @@ function registrarPago() {
 .alumnos-container {
   min-height: 100vh;
   min-height: 100dvh;
-  background: linear-gradient(180deg, var(--potenza-light-grey) 0%, var(--potenza-grey-green) 100%);
+  background: var(--page-bg);
   padding: 20px;
   padding-bottom: 40px;
 }
@@ -644,14 +834,14 @@ function registrarPago() {
 }
 
 .alumnos-header h1 {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 1.75rem;
   font-weight: 700;
   margin: 0;
 }
 
 .subtitle {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.9rem;
   margin: 4px 0 0 0;
   font-weight: 500;
@@ -663,8 +853,20 @@ function registrarPago() {
   gap: 20px;
 }
 
+.stat-card {
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--potenza-yellow);
+}
+
 .legend {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -679,7 +881,7 @@ function registrarPago() {
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
 }
 
 .status-indicator {
@@ -708,7 +910,7 @@ function registrarPago() {
 }
 
 .alumno-card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -731,9 +933,9 @@ function registrarPago() {
 }
 
 .alumno-name h3 {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 1.2rem;
-  margin: 0 0 12px 0;
+  margin: 0;
   font-weight: 600;
 }
 
@@ -744,30 +946,137 @@ function registrarPago() {
 }
 
 .payment-label {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.85rem;
   margin: 0;
   font-weight: 500;
 }
 
 .payment-date {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 0.95rem;
   margin: 0;
   font-weight: 600;
 }
 
 .payment-type {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.85rem;
   font-weight: 500;
   text-transform: capitalize;
 }
 
 .next-payment {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   font-size: 0.85rem;
   margin: 4px 0 0 0;
+}
+
+.membership-info-chip {
+  display: inline-block;
+  background-color: var(--potenza-dark-grey);
+  color: var(--potenza-yellow);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.delete-alumno-button-inline {
+  background: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: auto;
+}
+
+.delete-alumno-button-inline:hover {
+  background-color: #ef4444;
+  color: white;
+  transform: scale(1.1);
+}
+
+/* Delete Modal Styles */
+.delete-confirmation-modal {
+  text-align: center;
+  max-width: 400px !important;
+  padding: 40px 24px !important;
+}
+
+.delete-icon-large {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.delete-confirmation-modal h3 {
+  color: var(--header-text);
+  font-size: 1.5rem;
+  margin: 0 0 12px 0;
+}
+
+.delete-confirmation-modal p {
+  color: var(--subtitle-text);
+  margin: 0 0 8px 0;
+}
+
+.delete-warning {
+  color: #ef4444 !important;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 16px !important;
+}
+
+.modal-actions-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.confirm-delete-btn {
+  background: #ef4444;
+  color: white;
+  border: 2px solid var(--potenza-black);
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-delete-btn:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.cancel-delete-btn {
+  background: var(--potenza-dark-grey);
+  color: white;
+  border: 2px solid var(--potenza-black);
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-delete-btn:hover {
+  background: #3A3A3A;
+}
+
+.delete-alumno-button:active {
+  transform: scale(0.9);
 }
 
 .history-button {
@@ -794,7 +1103,7 @@ function registrarPago() {
 .payment-history {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--input-border);
   animation: slideDown 0.3s ease-out;
 }
 
@@ -810,7 +1119,7 @@ function registrarPago() {
 }
 
 .history-label {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 0.85rem;
   font-weight: 600;
   margin: 0 0 8px 0;
@@ -827,24 +1136,32 @@ function registrarPago() {
   justify-content: space-between;
   align-items: center;
   padding: 6px 10px;
-  background: #f9fafb;
+  background: var(--input-bg);
   border-radius: 6px;
   font-size: 0.8rem;
 }
 
 .history-date {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-weight: 500;
 }
 
 .history-type {
-  color: var(--potenza-grey-green);
+  color: var(--subtitle-text);
   text-transform: capitalize;
   font-size: 0.75rem;
   padding: 2px 8px;
-  background: white;
+  background: var(--card-bg);
   border-radius: 4px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--input-border);
+}
+
+.history-membresia {
+  color: var(--header-text);
+  font-weight: 700;
+  font-size: 0.75rem;
+  margin-left: auto;
+  padding-left: 10px;
 }
 
 .alumno-actions {
@@ -884,7 +1201,7 @@ function registrarPago() {
 
 .days-info {
   font-size: 0.75rem;
-  color: var(--potenza-dark-grey);
+  color: var(--subtitle-text);
   font-weight: 600;
   text-align: center;
 }
@@ -912,7 +1229,7 @@ function registrarPago() {
 }
 
 .empty-state {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 40px;
   text-align: center;
@@ -920,25 +1237,25 @@ function registrarPago() {
   font-size: 1rem;
 }
 
-.modal-student-info {
-  padding: 16px 24px;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
+.payment-summary p {
+  margin: 4px 0;
+  color: var(--header-text);
+  font-size: 1rem;
 }
 
-.modal-student-info p {
-  margin: 0;
-  color: var(--potenza-dark-grey);
-  font-size: 1rem;
+.modal-student-info {
+  padding: 16px 24px;
+  background: var(--input-bg);
+  border-bottom: 1px solid var(--input-border);
 }
 
 .select-input {
   padding: 12px 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--input-border);
   border-radius: 8px;
   font-size: 16px;
   font-family: inherit;
-  background-color: white;
+  background-color: var(--input-bg);
   cursor: pointer;
   transition: all 0.2s;
   -webkit-appearance: none;
@@ -1001,13 +1318,12 @@ function registrarPago() {
 }
 
 .modal-content {
-  background: white;
-  border-radius: 16px;
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 32px;
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
   border: 2px solid var(--potenza-yellow);
 }
 
@@ -1020,7 +1336,7 @@ function registrarPago() {
 }
 
 .modal-header h2 {
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0;
@@ -1061,17 +1377,30 @@ function registrarPago() {
   gap: 8px;
 }
 
+.membership-option h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  color: var(--header-text);
+}
+
+.form-group h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  color: var(--header-text);
+}
+
 .form-group label {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--potenza-dark-grey);
 }
 
-.form-group input {
-  padding: 12px 16px;
-  border: 2px solid #e5e7eb;
+.form-group input,
+.form-group select {
+  padding: 12px;
+  border: 2px solid var(--input-border);
   border-radius: 8px;
-  font-size: 16px;
+  font-size: 1rem;
   font-family: inherit;
   transition: all 0.2s;
   -webkit-appearance: none;

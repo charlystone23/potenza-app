@@ -4,15 +4,19 @@ import Dashboard from "../views/Dashboard.vue"
 import Admin from "../views/Admin.vue"
 import Alumnos from "../views/Alumnos.vue"
 import AdminAlumnos from "../views/AdminAlumnos.vue"
+import AdminUsers from "../views/AdminUsers.vue"
+import AdminStats from "../views/AdminStats.vue"
+import AdminMemberships from "../views/AdminMemberships.vue"
+import AdminConfig from "../views/AdminConfig.vue"
 
 const routes = [
-  { 
-    path: "/", 
+  {
+    path: "/",
     component: Login,
     meta: { requiresAuth: false }
   },
-  { 
-    path: "/dashboard", 
+  {
+    path: "/dashboard",
     component: Dashboard,
     meta: { requiresAuth: true }
   },
@@ -29,6 +33,26 @@ const routes = [
   {
     path: "/admin/alumnos",
     component: AdminAlumnos,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: "/admin/users",
+    component: AdminUsers,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: "/admin/stats",
+    component: AdminStats,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: "/admin/memberships",
+    component: AdminMemberships,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: "/admin/config",
+    component: AdminConfig,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
@@ -62,19 +86,19 @@ router.beforeEach((to, from, next) => {
   }
 
   // If route requires admin and user is not admin, redirect to dashboard
-  if (to.meta.requiresAdmin && user?.role !== "ADMIN") {
+  if (to.meta.requiresAdmin && user?.role !== "admin") {
     next("/dashboard")
     return
   }
 
   // If user is admin trying to access dashboard or alumnos (trainer view), redirect to admin panel
-  if ((to.path === "/dashboard" || to.path === "/alumnos") && user?.role === "ADMIN") {
+  if ((to.path === "/dashboard" || to.path === "/alumnos") && user?.role === "admin") {
     next("/admin")
     return
   }
 
   // If user is common user trying to access admin routes, redirect to dashboard
-  if ((to.path.startsWith("/admin")) && user?.role !== "ADMIN") {
+  if ((to.path.startsWith("/admin")) && user?.role !== "admin") {
     next("/dashboard")
     return
   }
