@@ -31,10 +31,12 @@ async function handleLogin() {
         router.push("/dashboard")
       }
     } else {
-      error.value = response.message || "Credenciales incorrectas"
+      // Si el backend envió un mensaje específico, lo usamos.
+      // Si no, y hay un campo 'error', es probablemente un error del servidor (500).
+      error.value = response.message || response.error || "Error en el servidor o credenciales incorrectas"
     }
   } catch (err) {
-    error.value = "Error de conexión. Intenta más tarde."
+    error.value = "Error de conexión con el servidor. Asegúrate de que el backend esté corriendo."
     console.error("Login error:", err)
   } finally {
     loading.value = false
