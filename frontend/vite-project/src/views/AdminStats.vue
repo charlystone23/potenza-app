@@ -294,7 +294,7 @@ function goBack() {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: white;
+  background: var(--card-bg);
   padding: 10px 16px;
   border-radius: 10px;
   border: 2px solid var(--potenza-yellow);
@@ -302,16 +302,17 @@ function goBack() {
 
 .header-filters label {
   font-weight: 700;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
   font-size: 0.9rem;
 }
 
 .filter-select {
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--input-border);
   font-weight: 600;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
+  background: var(--input-bg);
   outline: none;
 }
 
@@ -417,7 +418,7 @@ function goBack() {
 
 .card-header h3 {
   margin: 0;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
 }
 
 .activos-badge {
