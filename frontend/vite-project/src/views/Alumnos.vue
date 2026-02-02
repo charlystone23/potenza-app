@@ -14,6 +14,7 @@ const historialVisible = ref({}) // Objeto para rastrear qué historiales están
 const nuevoAlumno = ref({
   nombre: "",
   apellido: "",
+  celular: "",
   fechaPago: "",
   tipoPago: "efectivo",
   detalleOtros: "",
@@ -27,6 +28,7 @@ const nuevoPago = ref({
 })
 const membresias = ref([])
 const error = ref("")
+const isEditing = ref(false)
 
 const isLoading = ref(false)
 
@@ -163,12 +165,29 @@ function goBack() {
 }
 
 function openModal() {
+  isEditing.value = false
   showModal.value = true
   error.value = ""
   nuevoAlumno.value = {
     nombre: "",
     apellido: "",
-    fechaPago: ""
+    celular: "",
+    fechaPago: "" // Not used for editing but needed for object structure if any
+  }
+}
+
+function openEditModal(alumno) {
+  isEditing.value = true
+  showModal.value = true
+  error.value = ""
+  // Store ID for update
+  nuevoAlumno.value = {
+    _id: alumno._id || alumno.id,
+    nombre: alumno.nombre,
+    apellido: alumno.apellido,
+    celular: alumno.celular || "",
+    // We don't edit payment info here basically, but we keep the object safe
+    fechaPago: "" 
   }
 }
 
@@ -178,6 +197,7 @@ function closeModal() {
   nuevoAlumno.value = {
     nombre: "",
     apellido: "",
+    celular: "",
     fechaPago: "",
     tipoPago: "efectivo",
     detalleOtros: "",
@@ -246,6 +266,37 @@ async function agregarAlumno() {
     error.value = "El apellido es requerido"
     return
   }
+
+  if (!nuevoAlumno.value.celular.trim()) {
+    error.value = "El celular es requerido"
+    return
+  }
+
+  // Si estamos editando, solo permitimos nombre, apellido, celular
+  if (isEditing.value) {
+    try {
+      isLoading.value = true
+      const updated = await MongoService.updateAlumno(nuevoAlumno.value._id, {
+        nombre: nuevoAlumno.value.nombre.trim(),
+        apellido: nuevoAlumno.value.apellido.trim(),
+        celular: nuevoAlumno.value.celular.trim()
+      })
+      
+      // Update local list
+      const index = alumnos.value.findIndex(a => (a._id || a.id) === (updated._id || updated.id))
+      if (index !== -1) {
+        // Keep existing properties like history
+        alumnos.value[index] = { ...alumnos.value[index], ...updated }
+      }
+      closeModal()
+    } catch (e) {
+      console.error(e)
+      error.value = "Error al actualizar alumno"
+    } finally {
+      isLoading.value = false
+    }
+    return
+  }
   
   if (!nuevoAlumno.value.fechaPago) {
     error.value = "La fecha de pago es requerida"
@@ -285,6 +336,7 @@ async function agregarAlumno() {
   const alumnoData = {
     nombre: nuevoAlumno.value.nombre.trim(),
     apellido: nuevoAlumno.value.apellido.trim(),
+    celular: nuevoAlumno.value.celular.trim(),
     entrenador: currentUser.value ? currentUser.value._id : null,
     historialPagos: [{
       fecha: fechaPagoDate,
@@ -570,9 +622,19 @@ async function eliminarAlumno(id) {
             <button @click="openPaymentModal(alumno)" class="register-payment-button">
               Registrar Pago
             </button>
+            <div class="action-buttons-group">
+            <button 
+              v-if="currentUser?.role === 'entrenador'"
+              @click.stop="openEditModal(alumno)" 
+              class="edit-alumno-button-inline" 
+              title="Editar Alumno"
+            >
+              ✏️
+            </button>
             <button @click.stop="openDeleteConfirm(alumno)" class="delete-alumno-button-inline" title="Eliminar Alumno">
               🗑️
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -605,7 +667,7 @@ async function eliminarAlumno(id) {
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Nuevo Alumno</h2>
+          <h2>{{ isEditing ? 'Editar Alumno' : 'Nuevo Alumno' }}</h2>
           <button @click="closeModal" class="close-button">×</button>
         </div>
         
@@ -633,7 +695,20 @@ async function eliminarAlumno(id) {
           </div>
 
           <div class="form-group">
-            <label for="fechaPago">Fecha de Último Pago * (dd/mm/yyyy)</label>
+            <label for="celular">Celular *</label>
+            <input
+              id="celular"
+              v-model="nuevoAlumno.celular"
+              type="text"
+              placeholder="Ingresa el celular"
+              required
+            />
+          </div>
+
+          <!-- Campos de Pago solo si NO estamos editando -->
+          <div v-if="!isEditing">
+            <div class="form-group">
+              <label for="fechaPago">Fecha de Último Pago * (dd/mm/yyyy)</label>
             <input
               id="fechaPago"
               v-model="nuevoAlumno.fechaPago"
@@ -683,6 +758,7 @@ async function eliminarAlumno(id) {
               </option>
             </select>
           </div>
+          </div>
 
           <div v-if="error" class="error-message">
             {{ error }}
@@ -693,7 +769,7 @@ async function eliminarAlumno(id) {
               Cancelar
             </button>
             <button type="submit" class="submit-button">
-              Agregar Alumno
+              {{ isEditing ? 'Actualizar Alumno' : 'Agregar Alumno' }}
             </button>
           </div>
         </form>
@@ -790,6 +866,13 @@ async function eliminarAlumno(id) {
   background: var(--page-bg);
   padding: 20px;
   padding-bottom: 40px;
+}
+
+.action-buttons-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
 }
 
 .alumnos-header {
@@ -916,7 +999,7 @@ async function eliminarAlumno(id) {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 16px;
   border: 2px solid transparent;
   transition: all 0.2s;
@@ -982,6 +1065,24 @@ async function eliminarAlumno(id) {
   font-weight: 700;
   margin-left: 8px;
   vertical-align: middle;
+}
+
+.edit-alumno-button-inline {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-alumno-button-inline:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
 }
 
 .delete-alumno-button-inline {

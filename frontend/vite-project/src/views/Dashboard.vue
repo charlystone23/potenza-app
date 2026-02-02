@@ -23,6 +23,10 @@ function logout() {
 function goToAlumnos() {
   router.push("/alumnos")
 }
+
+function goToSales() {
+  router.push("/sales")
+}
 </script>
 
 <template>
@@ -48,7 +52,7 @@ function goToAlumnos() {
       </div>
 
       <div class="cards-grid">
-        <div class="card">
+        <div class="card" :class="{ 'disabled': user?.role === 'entrenador' }">
           <div class="card-icon">💪</div>
           <h3>Mis Rutinas</h3>
           <p>Consulta y sigue tus rutinas de entrenamiento</p>
@@ -58,6 +62,12 @@ function goToAlumnos() {
           <div class="card-icon">👥</div>
           <h3>Alumnos</h3>
           <p>Gestiona tus alumnos y sus pagos</p>
+        </div>
+
+        <div class="card" @click="goToSales">
+          <div class="card-icon">🛒</div>
+          <h3>Ventas</h3>
+          <p>Kiosco y venta de productos</p>
         </div>
       </div>
     </div>
@@ -203,5 +213,12 @@ function goToAlumnos() {
   .cards-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(1);
 }
 </style>

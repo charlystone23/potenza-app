@@ -433,7 +433,7 @@ function goBack() {
 .trainer-date-filter {
   margin: 16px 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px;
   background: var(--input-bg);
   padding: 16px;
@@ -468,6 +468,8 @@ function goBack() {
   transition: all 0.2s ease;
   cursor: pointer;
   width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .date-input-group input:focus {

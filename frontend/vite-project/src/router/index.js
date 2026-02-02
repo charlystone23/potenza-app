@@ -8,6 +8,7 @@ import AdminUsers from "../views/AdminUsers.vue"
 import AdminStats from "../views/AdminStats.vue"
 import AdminMemberships from "../views/AdminMemberships.vue"
 import AdminConfig from "../views/AdminConfig.vue"
+import AdminSales from "../views/AdminSales.vue"
 
 const routes = [
   {
@@ -54,6 +55,11 @@ const routes = [
     path: "/admin/config",
     component: AdminConfig,
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: "/sales",
+    component: AdminSales,
+    meta: { requiresAuth: true }
   },
   {
     path: "/:pathMatch(.*)*",

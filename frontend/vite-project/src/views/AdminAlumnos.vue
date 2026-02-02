@@ -147,6 +147,7 @@ function isTrainerExpanded(trainerId) {
               <div class="alumno-details">
                 <h3>{{ alumno.nombre }} {{ alumno.apellido }}</h3>
                 <div class="alumno-payment-info">
+                  <p v-if="alumno.celular" class="alumno-phone">📱 {{ alumno.celular }}</p>
                   <p v-if="getUltimoPago(alumno)" class="payment-info">
                     Último pago: {{ formatDate(getUltimoPago(alumno).fecha) }} 
                     <span class="payment-type">({{ getUltimoPago(alumno).tipo }})</span>
@@ -421,6 +422,13 @@ function isTrainerExpanded(trainerId) {
 .payment-type {
   color: var(--header-text);
   text-transform: capitalize;
+  font-weight: 500;
+}
+
+.alumno-phone {
+  color: var(--header-text);
+  font-size: 0.9rem;
+  margin: 0 0 4px 0;
   font-weight: 500;
 }
 

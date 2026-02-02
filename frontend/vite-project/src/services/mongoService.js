@@ -173,12 +173,157 @@ export const MongoService = {
         }
     },
 
+    async updateAlumno(id, alumno) {
+        try {
+            const response = await fetch(`${API_URL}/alumnos/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(alumno)
+            });
+            if (!response.ok) throw new Error('Error updating alumno');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
     async deleteAlumno(id) {
         try {
             const response = await fetch(`${API_URL}/alumnos/${id}`, {
                 method: 'DELETE'
             });
             if (!response.ok) throw new Error('Error al eliminar alumno');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    // --- PRODUCTS ---
+    async getProducts() {
+        try {
+            const response = await fetch(`${API_URL}/products`);
+            if (!response.ok) throw new Error('Error al obtener productos');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            return [];
+        }
+    },
+
+    async createProduct(data) {
+        try {
+            const response = await fetch(`${API_URL}/products`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Error al crear producto');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    async updateProduct(id, data) {
+        try {
+            const response = await fetch(`${API_URL}/products/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Error al actualizar producto');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    async deleteProduct(id) {
+        try {
+            const response = await fetch(`${API_URL}/products/${id}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Error al eliminar producto');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    // --- SALES ---
+    async createSale(data) {
+        try {
+            const response = await fetch(`${API_URL}/sales`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Error al registrar venta');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    async adjustStock(productId, newStock, reason) {
+        try {
+            const response = await fetch(`${API_URL}/products/${productId}/adjust-stock`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newStock, reason })
+            });
+            if (!response.ok) throw new Error('Error al actualizar stock');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    async getStockLogs(productId) {
+        try {
+            const response = await fetch(`${API_URL}/products/${productId}/stock-logs`);
+            if (!response.ok) throw new Error('Error al obtener historial');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            return [];
+        }
+    },
+
+    async getSalesStats(productId, sellerId = null) {
+        try {
+            let url = `${API_URL}/products/${productId}/sales-stats`;
+            if (sellerId) {
+                url += `?sellerId=${sellerId}`;
+            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Error al obtener estadísticas de ventas');
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
+    async getGeneralSalesStats(startDate, endDate) {
+        try {
+            const params = new URLSearchParams();
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+
+            const response = await fetch(`${API_URL}/sales/general-stats?${params.toString()}`);
+            if (!response.ok) throw new Error('Error al obtener estadísticas generales');
             return await response.json();
         } catch (error) {
             console.error("API Error:", error);

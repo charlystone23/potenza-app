@@ -42,6 +42,10 @@ function goToMemberships() {
 function goToConfig() {
   router.push("/admin/config")
 }
+
+function goToSales() {
+  router.push("/sales")
+}
 </script>
 
 <template>
@@ -109,6 +113,12 @@ function goToConfig() {
           <div class="card-icon">⚙️</div>
           <h3>Configuración</h3>
           <p>Ajustes generales del sistema</p>
+        </div>
+
+        <div class="card" @click="goToSales">
+          <div class="card-icon">🛒</div>
+          <h3>Ventas y Stock</h3>
+          <p>Gestionar productos y ventas</p>
         </div>
       </div>
     </div>
