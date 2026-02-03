@@ -1068,44 +1068,49 @@ async function eliminarAlumno(id) {
 }
 
 .edit-alumno-button-inline {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.edit-alumno-button-inline:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1);
-}
-
-.delete-alumno-button-inline {
-  background: transparent;
-  border: 1px solid #ef4444;
-  color: #ef4444;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
   font-size: 1.1rem;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
+  padding: 6px;
+  border-radius: 8px;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  min-height: auto;
+  min-height: 38px;
+  width: 38px;
+}
+
+.edit-alumno-button-inline:hover {
+  border-color: var(--potenza-yellow);
+  background-color: var(--potenza-dark-grey);
+}
+
+.delete-alumno-button-inline {
+  background-color: var(--input-bg);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  width: 38px;
 }
 
 .delete-alumno-button-inline:hover {
   background-color: #ef4444;
   color: white;
-  transform: scale(1.1);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .delete-alumno-button-inline:hover {
+  background-color: #dc2626;
 }
 
 /* Delete Modal Styles */

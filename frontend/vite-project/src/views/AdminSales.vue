@@ -538,7 +538,7 @@ function formatPrice(value) {
     <!-- General Sales Stats Modal (Admin Only) -->
     <div v-if="showGeneralStatsModal" class="modal-overlay" @click.self="showGeneralStatsModal = false">
       <div class="modal-content history-modal">
-        <div class="modal-header">
+        <div class="modal-header centered">
           <h2>Estadísticas Generales de Ventas</h2>
           <button @click="showGeneralStatsModal = false" class="close-button">×</button>
         </div>
@@ -788,67 +788,128 @@ h1 {
 }
 
 .stock-button-small {
-  background-color: var(--card-bg);
-  border: 1px solid var(--potenza-grey-green);
+  background-color: var(--input-bg);
+  border: 1px solid var(--potenza-yellow);
   padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 1rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
 }
 
 .stock-button-small:hover {
-  background-color: var(--potenza-light-grey);
+  background-color: var(--potenza-yellow);
+  border-color: var(--potenza-black);
+  transform: translateY(-1px);
 }
 
 .icon-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
+  align-items: center;
 }
 
 .icon-button {
-  background: none;
-  border: none;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
   font-size: 1.1rem;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  min-height: 38px;
+  width: 38px;
+}
+
+.icon-button:hover {
+  border-color: var(--potenza-yellow);
+  background-color: var(--potenza-dark-grey);
+  color: var(--potenza-yellow);
+  transform: translateY(-1px);
+}
+
+.icon-button.delete:hover {
+  border-color: #ef4444;
+  background-color: #fee2e2;
+}
+
+[data-theme="dark"] .icon-button.delete:hover {
+  background-color: #450a0a;
 }
 
 .history-link {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--potenza-yellow);
   text-decoration: underline;
   cursor: pointer;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   padding: 0;
 }
 
 .history-link:hover {
-  color: #2563eb;
+  filter: brightness(1.2);
 }
+
 
 .history-modal {
   max-width: 600px;
-  max-height: 90vh; /* Fixed max height for viewport */
-  display: flex; /* Flex layout for fixed header */
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
   flex-direction: column;
-  overflow: hidden; /* Prevent container scroll */
-  padding: 0; /* Remove padding from container, move to children */
+  overflow: hidden;
+  padding: 0;
 }
 
 .modal-header {
-  padding: 24px 24px 10px 24px;
+  padding: 24px;
   background: var(--card-bg);
-  /* Ensure header stays on top if needed */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--input-border);
   z-index: 10;
 }
 
+.modal-header.centered {
+  flex-direction: column;
+  text-align: center;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.modal-header.centered h2 {
+  margin: 0;
+  width: 100%;
+}
+
+.modal-header.centered .close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
 .modal-body {
-  padding: 10px 24px 24px 24px;
-  overflow-y: auto; /* Scrollable body */
-  flex: 1; /* Take remaining space */
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center; /* Center children horizontally */
+}
+
+.modal-body > * {
+  width: 100%; /* Ensure they take full width but honor their own constraints */
 }
 
 .history-table {
@@ -890,7 +951,9 @@ h1 {
 .empty-history {
   text-align: center;
   color: var(--subtitle-text);
-  padding: 20px;
+  padding: 40px 20px;
+  font-style: italic;
+  width: 100%;
 }
 
 /* Modals */
@@ -1070,9 +1133,10 @@ h1 {
 }
 
 .unit {
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: var(--subtitle-text);
   font-weight: 500;
+  margin-left: 8px;
 }
 
 .breakdown-section h3 {
@@ -1095,11 +1159,18 @@ h1 {
 .stats-filter-row {
     display: flex;
     gap: 16px;
-    margin-bottom: 20px;
     background: var(--input-bg);
     padding: 16px;
-    border-radius: 8px;
-    align-items: center;
+    border-radius: 12px;
+    align-items: flex-end;
+    justify-content: center;
+    border: 1px solid var(--input-border);
+    flex-wrap: wrap;
+}
+
+.stats-filter-row .form-group {
+    flex: 1;
+    min-width: 140px;
 }
 
 .small-text {
