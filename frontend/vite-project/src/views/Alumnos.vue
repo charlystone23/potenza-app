@@ -29,6 +29,10 @@ const nuevoPago = ref({
 const membresias = ref([])
 const error = ref("")
 const isEditing = ref(false)
+const showDelegationModal = ref(false)
+const entrenadores = ref([])
+const trainerIdParaDelegar = ref("")
+const isLoadingTrainers = ref(false)
 
 const isLoading = ref(false)
 
@@ -514,6 +518,58 @@ async function confirmarEliminacion() {
 async function eliminarAlumno(id) {
   // Method replaced by openDeleteConfirm
 }
+
+async function openDelegationModal(alumno) {
+  alumnoSeleccionado.value = alumno
+  showDelegationModal.value = true
+  error.value = ""
+  trainerIdParaDelegar.value = ""
+  
+  try {
+    isLoadingTrainers.value = true
+    const data = await MongoService.getEntrenadores()
+    // Filtrar al entrenador actual para no delegar a sí mismo
+    entrenadores.value = data.filter(t => t._id !== currentUser.value._id)
+  } catch (e) {
+    console.error("Error loading trainers:", e)
+    error.value = "Error al cargar la lista de entrenadores"
+  } finally {
+    isLoadingTrainers.value = false
+  }
+}
+
+function closeDelegationModal() {
+  showDelegationModal.value = false
+  alumnoSeleccionado.value = null
+  trainerIdParaDelegar.value = ""
+  error.value = ""
+}
+
+async function confirmarDelegacion() {
+  if (!trainerIdParaDelegar.value) {
+    error.value = "Debes seleccionar un entrenador"
+    return
+  }
+
+  try {
+    isLoading.value = true
+    const alumnoId = alumnoSeleccionado.value._id || alumnoSeleccionado.value.id
+    await MongoService.updateAlumno(alumnoId, {
+      entrenador: trainerIdParaDelegar.value
+    })
+    
+    // Eliminar el alumno de la lista local ya que ya no pertenece a este entrenador
+    alumnos.value = alumnos.value.filter(a => (a._id || a.id) !== alumnoId)
+    
+    closeDelegationModal()
+    alert("Alumno delegado correctamente")
+  } catch (e) {
+    console.error("Error delegating alumno:", e)
+    error.value = "Error al delegar el alumno"
+  } finally {
+    isLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -623,6 +679,14 @@ async function eliminarAlumno(id) {
               Registrar Pago
             </button>
             <div class="action-buttons-group">
+            <button 
+              v-if="currentUser?.role === 'entrenador'"
+              @click.stop="openDelegationModal(alumno)" 
+              class="delegate-alumno-button-inline" 
+              title="Delegar Alumno a otro entrenador"
+            >
+              🔄
+            </button>
             <button 
               v-if="currentUser?.role === 'entrenador'"
               @click.stop="openEditModal(alumno)" 
@@ -856,6 +920,53 @@ async function eliminarAlumno(id) {
         </form>
       </div>
     </div>
+
+    <!-- Modal para delegar alumno -->
+    <div v-if="showDelegationModal && alumnoSeleccionado" class="modal-overlay" @click.self="closeDelegationModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Delegar Alumno</h2>
+          <button @click="closeDelegationModal" class="close-button">×</button>
+        </div>
+        
+        <div class="modal-student-info">
+          <p>Vas a transferir a <strong>{{ alumnoSeleccionado.nombre }} {{ alumnoSeleccionado.apellido }}</strong> a otro entrenador.</p>
+          <p class="delegate-warning-text">Una vez delegado, el alumno dejará de aparecer en tu lista.</p>
+        </div>
+        
+        <div class="modal-form">
+          <div class="form-group">
+            <label for="trainerSelect">Seleccionar nuevo entrenador *</label>
+            <div v-if="isLoadingTrainers" class="loading-mini">Cargando entrenadores...</div>
+            <select
+              v-else
+              id="trainerSelect"
+              v-model="trainerIdParaDelegar"
+              required
+              class="select-input"
+            >
+              <option value="" disabled>Selecciona un entrenador</option>
+              <option v-for="t in entrenadores" :key="t._id" :value="t._id">
+                {{ t.nombre }} (@{{ t.username }})
+              </option>
+            </select>
+          </div>
+
+          <div v-if="error" class="error-message">
+            {{ error }}
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" @click="closeDelegationModal" class="cancel-button" :disabled="isLoading">
+              Cancelar
+            </button>
+            <button @click="confirmarDelegacion" class="submit-button" :disabled="isLoading || !trainerIdParaDelegar">
+              {{ isLoading ? 'Delegando...' : 'Confirmar Delegación' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1085,6 +1196,27 @@ async function eliminarAlumno(id) {
 .edit-alumno-button-inline:hover {
   border-color: var(--potenza-yellow);
   background-color: var(--potenza-dark-grey);
+}
+
+.delegate-alumno-button-inline {
+  background-color: var(--input-bg);
+  border: 1px solid var(--potenza-yellow);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  width: 38px;
+}
+
+.delegate-alumno-button-inline:hover {
+  background-color: var(--potenza-yellow);
+  color: var(--potenza-dark-grey);
+  transform: translateY(-1px);
 }
 
 .delete-alumno-button-inline {
@@ -1526,6 +1658,20 @@ async function eliminarAlumno(id) {
   border-radius: 8px;
   font-size: 0.875rem;
   text-align: center;
+}
+
+.delegate-warning-text {
+  color: #eab308;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.loading-mini {
+  padding: 10px;
+  text-align: center;
+  color: var(--subtitle-text);
+  font-style: italic;
 }
 
 .modal-actions {

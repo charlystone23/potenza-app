@@ -127,6 +127,23 @@ async function guardarUsuario() {
   }
 }
 
+async function eliminarUsuario(id) {
+  if (!confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.")) {
+    return
+  }
+
+  try {
+    isLoading.value = true
+    await MongoService.deleteUsuario(id)
+    await cargarUsuarios()
+  } catch (e) {
+    console.error(e)
+    error.value = e.message || "Error al eliminar usuario"
+  } finally {
+    isLoading.value = false
+  }
+}
+
 function goBack() {
   router.push("/admin")
 }
@@ -164,9 +181,19 @@ function goBack() {
               {{ usuario.role === 'admin' ? 'Administrador' : 'Entrenador' }}
             </span>
           </div>
-          <button @click="openEditModal(usuario)" class="edit-button">
-            Editar
-          </button>
+          <div class="user-actions">
+            <button @click="openEditModal(usuario)" class="edit-button">
+              Editar
+            </button>
+            <button 
+              v-if="usuario.role !== 'entrenador'"
+              @click="eliminarUsuario(usuario._id)" 
+              class="delete-button"
+              title="No se pueden eliminar entrenadores para proteger la integridad de los datos"
+            >
+              Eliminar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -403,10 +430,12 @@ function goBack() {
   color: var(--potenza-yellow);
 }
 
-.edit-button {
-  background-color: var(--potenza-dark-grey);
-  color: var(--potenza-yellow);
-  border: 2px solid var(--potenza-black);
+.user-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.edit-button, .delete-button {
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -419,9 +448,26 @@ function goBack() {
   white-space: nowrap;
 }
 
+.edit-button {
+  background-color: var(--potenza-dark-grey);
+  color: var(--potenza-yellow);
+  border: 2px solid var(--potenza-black);
+}
+
 .edit-button:active {
   transform: scale(0.98);
   background-color: #3A3A3A;
+}
+
+.delete-button {
+  background-color: #fff1f2;
+  color: #e11d48;
+  border: 2px solid #e11d48;
+}
+
+.delete-button:active {
+  transform: scale(0.98);
+  background-color: #ffe4e6;
 }
 
 .empty-state {

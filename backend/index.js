@@ -147,6 +147,30 @@ app.put('/api/users/:id', async (req, res) => {
     }
 });
 
+// DELETE USER
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userToDelete = await User.findById(id);
+
+        if (!userToDelete) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        // Restricción: No se pueden eliminar entrenadores por integridad de datos
+        if (userToDelete.role === 'entrenador') {
+            return res.status(403).json({
+                error: 'No se puede eliminar a un usuario con rol entrenador para proteger la integridad de los datos (alumnos, ventas, rutinas).'
+            });
+        }
+
+        await User.findByIdAndDelete(id);
+        res.json({ message: 'Usuario eliminado correctamente' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET Entrenadores con sus Alumnos (Vista Admin)
 app.get('/api/entrenadores', async (req, res) => {
     try {

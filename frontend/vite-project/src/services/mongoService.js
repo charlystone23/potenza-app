@@ -67,6 +67,22 @@ export const MongoService = {
         }
     },
 
+    async deleteUsuario(userId) {
+        try {
+            const response = await fetch(`${API_URL}/users/${userId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al eliminar usuario');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+
     async getMembresias() {
         try {
             const response = await fetch(`${API_URL}/membresias`);
