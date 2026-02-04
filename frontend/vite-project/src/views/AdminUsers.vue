@@ -127,14 +127,19 @@ async function guardarUsuario() {
   }
 }
 
-async function eliminarUsuario(id) {
-  if (!confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.")) {
+async function eliminarUsuario(usuario) {
+  const isEntrenador = usuario.role === 'entrenador'
+  const mensaje = isEntrenador 
+    ? `¿Estás seguro de que deseas eliminar al entrenador ${usuario.nombre}? \n\n¡ATENCION!:\nEsta es una ELIMINACION EN CADENA. Se eliminarán permanentemente todos sus alumnos y rutinas asociadas. Esta acción no se puede deshacer.`
+    : `¿Estás seguro de que deseas eliminar al administrador ${usuario.nombre}?`
+
+  if (!confirm(mensaje)) {
     return
   }
 
   try {
     isLoading.value = true
-    await MongoService.deleteUsuario(id)
+    await MongoService.deleteUsuario(usuario._id)
     await cargarUsuarios()
   } catch (e) {
     console.error(e)
@@ -186,10 +191,10 @@ function goBack() {
               Editar
             </button>
             <button 
-              v-if="usuario.role !== 'entrenador'"
-              @click="eliminarUsuario(usuario._id)" 
+              v-if="usuario.role === 'entrenador'"
+              @click="eliminarUsuario(usuario)" 
               class="delete-button"
-              title="No se pueden eliminar entrenadores para proteger la integridad de los datos"
+              title="Eliminar entrenador y todos sus alumnos asociados"
             >
               Eliminar
             </button>

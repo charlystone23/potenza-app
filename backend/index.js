@@ -157,15 +157,22 @@ app.delete('/api/users/:id', async (req, res) => {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        // Restricción: No se pueden eliminar entrenadores por integridad de datos
-        if (userToDelete.role === 'entrenador') {
+        // Restricción: No se pueden eliminar administradores para proteger el acceso al sistema
+        if (userToDelete.role === 'admin') {
             return res.status(403).json({
-                error: 'No se puede eliminar a un usuario con rol entrenador para proteger la integridad de los datos (alumnos, ventas, rutinas).'
+                error: 'No se puede eliminar a un usuario con rol administrador para proteger el acceso al sistema.'
             });
         }
 
+        // Si es un entrenador, eliminamos también sus alumnos (Eliminación en cadena)
+        if (userToDelete.role === 'entrenador') {
+            await Alumno.deleteMany({ entrenador: id });
+            // También podríamos limpiar Rutinas si fuera necesario
+            await Rutina.deleteMany({ entrenador: id });
+        }
+
         await User.findByIdAndDelete(id);
-        res.json({ message: 'Usuario eliminado correctamente' });
+        res.json({ message: 'Usuario y sus datos asociados eliminados correctamente' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
