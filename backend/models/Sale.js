@@ -8,6 +8,7 @@ const SaleSchema = new mongoose.Schema({
         price: { type: Number, required: true } // Price at time of sale
     }],
     total: { type: Number, required: true },
+    paymentType: { type: String, default: 'Efectivo' },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     date: { type: Date, default: Date.now }
 });

@@ -31,7 +31,9 @@ const saleForm = ref({
   productName: "",
   price: 0,
   quantity: 1,
-  maxStock: 0
+  maxStock: 0,
+  paymentType: "Efectivo",
+  customPaymentType: ""
 })
 
 const saleTotal = computed(() => {
@@ -271,7 +273,9 @@ function openSaleModal(product) {
     productName: product.name,
     price: product.price,
     quantity: 1,
-    maxStock: product.stock
+    maxStock: product.stock,
+    paymentType: "Efectivo",
+    customPaymentType: ""
   }
   showSaleModal.value = true
 }
@@ -285,7 +289,11 @@ async function registerSale() {
         price: saleForm.value.price
       }],
       total: saleTotal.value,
-      seller: currentUser.value ? (currentUser.value._id || currentUser.value.id) : null
+      total: saleTotal.value,
+      seller: currentUser.value ? (currentUser.value._id || currentUser.value.id) : null,
+      paymentType: saleForm.value.paymentType === 'Otro' 
+        ? (saleForm.value.customPaymentType || 'Otro') 
+        : saleForm.value.paymentType
     }
     
     await MongoService.createSale(saleData)
@@ -422,6 +430,22 @@ function formatPrice(value) {
               min="1" 
               :max="saleForm.maxStock" 
             />
+          </div>
+
+          <div class="form-group">
+             <label>Tipo de Pago</label>
+             <select v-model="saleForm.paymentType" required class="large-select">
+                <option value="Efectivo">Efectivo</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Otro">Otro</option>
+             </select>
+             <input 
+               v-if="saleForm.paymentType === 'Otro'"
+               v-model="saleForm.customPaymentType"
+               placeholder="Especifique el método de pago"
+               class="mt-2"
+               required
+             />
           </div>
 
           <div class="total-summary">
@@ -682,6 +706,28 @@ function formatPrice(value) {
                 </tbody>
             </table>
             </div>
+            </div>
+            
+            <div class="breakdown-section" style="margin-top: 24px;" v-if="generalStats.paymentTypeBreakdown">
+                <h3>Desglose por Método de Pago</h3>
+                 <div class="table-scroll-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Método</th>
+                                <th>Ventas</th>
+                                <th>Recaudado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="type in generalStats.paymentTypeBreakdown" :key="type.type">
+                                <td>{{ type.type }}</td>
+                                <td class="positive">{{ type.count }}</td>
+                                <td class="price-cell">{{ formatPrice(type.revenue) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                 </div>
             </div>
         </div>
         </div>
@@ -1332,5 +1378,26 @@ h1 {
     -webkit-overflow-scrolling: touch;
     width: 100%;
   }
+}
+
+.large-select {
+  padding: 12px;
+  border: 2px solid var(--input-border);
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--header-text);
+  font-family: inherit;
+  font-weight: 600;
+  outline: none;
+}
+
+.large-select:focus {
+  border-color: var(--potenza-yellow);
+}
+
+.mt-2 {
+  margin-top: 8px;
 }
 </style>

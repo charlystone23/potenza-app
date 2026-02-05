@@ -423,9 +423,10 @@ app.delete('/api/products/:id', async (req, res) => {
 
 // CREATE Sale (and update stock)
 // CREATE Sale (and update stock)
+// CREATE Sale (and update stock)
 app.post('/api/sales', async (req, res) => {
     try {
-        const { items, total, seller } = req.body; // items: [{ product: id, quantity: n, price: p }]
+        const { items, total, seller, paymentType } = req.body; // items: [{ product: id, quantity: n, price: p }]
 
         // Validate stock and prepare bulk updates
         const bulkOps = [];
@@ -454,7 +455,7 @@ app.post('/api/sales', async (req, res) => {
         await Product.bulkWrite(bulkOps);
 
         // Create Sale Record
-        const newSale = new Sale({ items, total, seller });
+        const newSale = new Sale({ items, total, seller, paymentType: paymentType || 'Efectivo' });
         const savedSale = await newSale.save();
 
         res.status(201).json(savedSale);
@@ -595,10 +596,24 @@ app.get('/api/sales/general-stats', async (req, res) => {
             })).sort((a, b) => b.revenue - a.revenue)
         })).sort((a, b) => b.revenue - a.revenue);
 
+        // Group by Payment Type
+        const salesByPaymentType = {};
+        sales.forEach(sale => {
+            const type = sale.paymentType || 'Efectivo'; // Default for old records
+            if (!salesByPaymentType[type]) {
+                salesByPaymentType[type] = { type, count: 0, revenue: 0 };
+            }
+            salesByPaymentType[type].count += 1;
+            salesByPaymentType[type].revenue += sale.total;
+        });
+
+        const paymentTypeBreakdown = Object.values(salesByPaymentType).sort((a, b) => b.revenue - a.revenue);
+
         res.json({
             totalRevenue,
             totalSalesCount,
-            breakdown
+            breakdown,
+            paymentTypeBreakdown
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
