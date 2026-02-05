@@ -1630,7 +1630,7 @@ async function confirmarDelegacion() {
 .form-group label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--potenza-dark-grey);
+  color: var(--header-text);
 }
 
 .form-group input,

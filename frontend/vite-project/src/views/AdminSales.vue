@@ -13,6 +13,7 @@ const currentUser = ref(null)
 const showProductModal = ref(false)
 const showSaleModal = ref(false)
 const showStockModal = ref(false) // New
+const showPriceModal = ref(false) // New Price Modal
 const showHistoryModal = ref(false) // New
 const isEditing = ref(false)
 
@@ -44,6 +45,14 @@ const stockForm = ref({
   currentStock: 0,
   newStock: 0,
   reason: ""
+})
+
+// Price Update Form
+const priceForm = ref({
+  id: null,
+  name: "",
+  currentPrice: 0,
+  newPrice: 0
 })
 
 const historyLogs = ref([])
@@ -152,6 +161,35 @@ async function updateStock() {
     loadProducts()
   } catch (e) {
     alert("Error al actualizar stock: " + e.message)
+  }
+}
+
+// --- Price Update ---
+function openPriceModal(product) {
+  priceForm.value = {
+    id: product._id,
+    name: product.name,
+    currentPrice: product.price,
+    newPrice: product.price
+  }
+  showPriceModal.value = true
+}
+
+async function updatePriceOnly() {
+  if (priceForm.value.newPrice < 0) {
+    alert("El precio no puede ser negativo")
+    return
+  }
+  try {
+    // Reusing updateProduct but only sending price
+    await MongoService.updateProduct(priceForm.value.id, {
+      price: priceForm.value.newPrice
+    })
+    showPriceModal.value = false
+    alert("Precio actualizado exitosamente")
+    loadProducts()
+  } catch (e) {
+    alert("Error al actualizar precio: " + e.message)
   }
 }
 
@@ -314,6 +352,7 @@ function formatPrice(value) {
                   Vender
                 </button>
                 <button v-if="isAdmin" @click="openStockModal(product)" class="stock-button-small" title="Ajustar Stock">📦</button>
+                <button v-if="isAdmin" @click="openPriceModal(product)" class="price-button-small" title="Actualizar Precio">$</button>
                 <div v-if="isAdmin" class="icon-actions">
                   <button @click="openEditModal(product)" class="icon-button" title="Editar">✏️</button>
                   <button @click="deleteProduct(product._id)" class="icon-button delete" title="Eliminar">🗑️</button>
@@ -429,6 +468,32 @@ function formatPrice(value) {
 
           <div class="modal-actions">
             <button type="button" @click="showStockModal = false" class="cancel-button">Cancelar</button>
+            <button type="submit" class="submit-button">Actualizar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Price Update Modal -->
+    <div v-if="showPriceModal" class="modal-overlay" @click.self="showPriceModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Actualizar Precio</h2>
+          <button @click="showPriceModal = false" class="close-button">×</button>
+        </div>
+        <form @submit.prevent="updatePriceOnly" class="modal-form">
+          <div class="product-summary">
+            <h3>{{ priceForm.name }}</h3>
+            <p>Precio Actual: {{ formatPrice(priceForm.currentPrice) }}</p>
+          </div>
+          
+          <div class="form-group">
+             <label>Nuevo Precio</label>
+             <input type="number" v-model="priceForm.newPrice" required min="0" />
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" @click="showPriceModal = false" class="cancel-button">Cancelar</button>
             <button type="submit" class="submit-button">Actualizar</button>
           </div>
         </form>
@@ -805,6 +870,20 @@ h1 {
   background-color: var(--potenza-yellow);
   border-color: var(--potenza-black);
   transform: translateY(-1px);
+}
+
+.price-button-small {
+  background-color: #dcfce7; /* green-100 */
+  color: #166534; /* green-800 */
+  border: 1px solid #22c55e;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .icon-actions {

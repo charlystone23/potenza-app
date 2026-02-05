@@ -49,7 +49,7 @@ async function handleLogin() {
     <div class="login-card">
       <div class="login-header">
         <div class="logo-container">
-          <img src="/logo.svg" alt="Potenza Gym Logo" class="logo" />
+          <img src="/logo-new.png" alt="Potenza Gym Logo" class="logo" />
         </div>
         <h1>Potenza Gym</h1>
         <p class="subtitle">Inicia sesión en tu cuenta</p>
