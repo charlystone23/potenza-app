@@ -389,7 +389,7 @@ function formatPrice(value) {
             <label>Nombre del Producto</label>
             <input v-model="productForm.name" required placeholder="Ej. Proteína Whey" />
           </div>
-          <div class="form-group row">
+          <div class="form-group row" v-if="!isEditing">
             <div class="col">
               <label>Precio</label>
               <input type="number" v-model="productForm.price" required min="0" />
